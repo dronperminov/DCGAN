@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from tensorflow import keras
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
 
 
 class GAN:
@@ -9,6 +9,7 @@ class GAN:
         self.discriminator = discriminator
         self.generator = generator
         self.latent_dim = latent_dim
+        self.test_noise = None
 
         self.discriminator.compile(optimizer=d_optimizer, loss=loss_fn, metrics=['accuracy'])
         self.discriminator.trainable = False
@@ -38,7 +39,7 @@ class GAN:
         generated_images = self.generate_images(batch_size)
         combined_images = tf.concat([generated_images, real_images], axis=0)
 
-        labels = tf.concat([tf.ones((batch_size, 1)) * 0.9, tf.zeros((batch_size, 1))], axis=0)
+        labels = tf.concat([tf.zeros((batch_size, 1)), tf.ones((batch_size, 1)) * 0.9], axis=0)
         labels += 0.1 * tf.random.uniform(tf.shape(labels))
 
         self.discriminator.trainable = True
@@ -48,7 +49,7 @@ class GAN:
 
     def train_generator(self, batch_size):
         random_latent_vectors = self.generate_latent(batch_size)
-        misleading_labels = tf.zeros((batch_size, 1))
+        misleading_labels = tf.ones((batch_size, 1))
 
         self.discriminator.trainable = False
         g_loss = self.gan.train_on_batch(random_latent_vectors, misleading_labels)
@@ -64,23 +65,29 @@ class GAN:
 
         return {"d_loss": d_loss, "g_loss": g_loss}
 
-    def save_plot(self, path, epoch, n=8):
-        examples = self.generate_images(n*n)
-        examples = (examples + 1) / 2
+    def save_plot(self, path, epoch, n):
+        if self.test_noise is None:
+            self.test_noise = self.generate_latent(n*n)
 
-        loss, accuracy = self.discriminator.evaluate(examples, tf.zeros((n*n, 1)), verbose=0)
+        images = self.generator(self.test_noise)
+        loss, accuracy = self.discriminator.evaluate(images, tf.ones((n*n, 1)), verbose=0)
         print("accuracy:", accuracy)
 
-        for i in range(n * n):
-            pyplot.subplot(n, n, 1 + i)
-            pyplot.axis('off')
-            pyplot.imshow(examples[i])
+        images = (images + 1) / 2
+
+        fig, axes = plt.subplots(n, n, figsize=(20, 20))
+
+        for i, image in enumerate(images):
+            axes[i // n, i % n].axis("off")
+            axes[i // n, i % n].imshow(image, aspect="auto")
+
+        plt.subplots_adjust(wspace=.05, hspace=.05)
 
         filename = path + '/epoch%03d.png' % epoch
-        pyplot.savefig(filename, dpi=400)
-        pyplot.close()
+        plt.savefig(filename, bbox_inches='tight', pad_inches=0.1)
+        plt.close()
 
-    def train(self, dataset, epochs, models_path, images_path, num_img=8, save_period=5, init_epoch=0):
+    def train(self, dataset, epochs, models_path, images_path, num_img=10, save_period=5, init_epoch=0):
         for epoch in range(init_epoch, epochs):
             for i, batch in enumerate(dataset):
                 losses = self.train_step(batch)
