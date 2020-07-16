@@ -74,8 +74,6 @@ def main():
     loss_fn = 'binary_crossentropy'
 
     images = load_data(dataset_path)
-    dataset = tf.data.Dataset.from_tensor_slices(images)
-    dataset = dataset.shuffle(buffer_size=1024).batch(batch_size).prefetch(32)
 
     if models_path and not os.path.exists(models_path):
         os.mkdir(models_path)
@@ -85,7 +83,7 @@ def main():
 
     gan = GAN(latent_dim, discriminator, generator, d_optimizer, g_optimizer, loss_fn)
     gan.summary()
-    gan.train(dataset, epochs, models_path, images_path)
+    gan.train(images, epochs, batch_size, models_path, images_path)
 
 
 if __name__ == '__main__':

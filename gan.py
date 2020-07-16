@@ -39,8 +39,8 @@ class GAN:
         generated_images = self.generate_images(batch_size)
         combined_images = tf.concat([generated_images, real_images], axis=0)
 
-        labels = tf.concat([tf.zeros((batch_size, 1)), tf.ones((batch_size, 1)) * 0.9], axis=0)
-        labels += 0.1 * tf.random.uniform(tf.shape(labels))
+        labels = tf.concat([tf.zeros((batch_size, 1)), tf.ones((batch_size, 1)) * 0.7], axis=0)
+        labels += 0.3 * tf.random.uniform(tf.shape(labels))
 
         self.discriminator.trainable = True
         d_loss, _ = self.discriminator.train_on_batch(combined_images, labels)
@@ -72,7 +72,6 @@ class GAN:
         images = self.generator(self.test_noise)
         loss, accuracy = self.discriminator.evaluate(images, tf.ones((n*n, 1)), verbose=0)
         print("accuracy:", accuracy)
-
         images = (images + 1) / 2
 
         fig, axes = plt.subplots(n, n, figsize=(20, 20))
@@ -87,7 +86,10 @@ class GAN:
         plt.savefig(filename, bbox_inches='tight', pad_inches=0.1)
         plt.close()
 
-    def train(self, dataset, epochs, models_path, images_path, num_img=10, save_period=5, init_epoch=0):
+    def train(self, images, epochs, batch_size, models_path, images_path, num_img=10, save_period=5, init_epoch=0):
+        dataset = tf.data.Dataset.from_tensor_slices(images)
+        dataset = dataset.shuffle(buffer_size=1024).batch(batch_size).prefetch(32)
+
         for epoch in range(init_epoch, epochs):
             d_loss = 0
             g_loss = 0
