@@ -89,13 +89,25 @@ class GAN:
 
     def train(self, dataset, epochs, models_path, images_path, num_img=10, save_period=5, init_epoch=0):
         for epoch in range(init_epoch, epochs):
+            d_loss = 0
+            g_loss = 0
+            losses_count = 0
+
             for i, batch in enumerate(dataset):
                 losses = self.train_step(batch)
-                print('epoch {epoch} batch {i}, d_loss: {d_loss}, g_loss: {g_loss}'.format(epoch=epoch, i=i, d_loss=losses["d_loss"], g_loss=losses["g_loss"]), end='\r')
+                d_loss += losses["d_loss"]
+                g_loss += losses["g_loss"]
+                losses_count += 1
+
+                print(f'epoch {epoch} batch {i}, d_loss: {d_loss / losses_count}, g_loss: {g_loss / losses_count}', end='\r')
+
+            d_loss /= losses_count
+            g_loss /= losses_count
 
             if epoch < 10 or epoch % save_period == 0:
                 self.save_plot(images_path, epoch, num_img)
                 self.generator.save(models_path + '/generator_epoch{epoch}.h5'.format(epoch=epoch))
                 self.discriminator.save(models_path + '/discriminator_epoch{epoch}.h5'.format(epoch=epoch))
             else:
-                print('')
+                print(f'epoch {epoch}, d_loss: {d_loss}, g_loss: {g_loss}')
+
