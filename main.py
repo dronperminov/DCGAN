@@ -25,14 +25,13 @@ def main():
     depth = 3
 
     latent_dim = 128
-    batch_size = 16
+    batch_size = 32
     epochs = 500
 
     init = keras.initializers.RandomNormal(mean=0.0, stddev=0.02)
 
     generator = keras.Sequential([
-        keras.Input(shape=(latent_dim,)),
-        layers.Dense(4 * 4 * 1024),
+        layers.Dense(4 * 4 * 1024, input_shape=(latent_dim,)),
         layers.LeakyReLU(alpha=0.2),
         layers.Reshape((4, 4, 1024)),
 
@@ -49,28 +48,24 @@ def main():
     ], name="generator")
 
     discriminator = keras.Sequential([
-        keras.Input(shape=(width, height, depth)),
-        layers.Conv2D(32, (3, 3), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.LeakyReLU(alpha=0.2),
 
-        layers.Conv2D(64, (3, 3), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.LeakyReLU(alpha=0.2),
 
-        layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.Conv2D(256, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.LeakyReLU(alpha=0.2),
 
-        layers.Conv2D(256, (3, 3), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.Conv2D(512, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.LeakyReLU(alpha=0.2),
 
-        layers.Conv2D(512, (3, 3), strides=(2, 2), padding='same', kernel_initializer=init),
-        layers.LeakyReLU(alpha=0.2),
-
-        layers.GlobalMaxPooling2D(),
+        layers.Flatten(),
         layers.Dense(1, activation='sigmoid'),
     ], name="discriminator")
 
-    g_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5, beta_2=0.9)
-    d_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5, beta_2=0.9)
+    g_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
+    d_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
     loss_fn = 'binary_crossentropy'
 
     images = load_data(dataset_path)
