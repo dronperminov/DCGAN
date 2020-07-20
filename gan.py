@@ -70,7 +70,21 @@ class GAN:
 
             print(f'epoch {epoch} batch {i}, g_loss: {g_loss}, d_loss_real: {d_loss_real}, d_loss_fake: {d_loss_fake}', end='\r')
 
-        return g_loss_avg / batches_count, d_loss_real_avg / batches_count, d_loss_fake_avg / batches_count
+        self.losses["g"].append(g_loss_avg / batches_count)
+        self.losses["d_real"].append(d_loss_real_avg / batches_count)
+        self.losses["d_fake"].append(d_loss_fake_avg / batches_count)
+
+    def test_accuracy(self, images, n):
+        real_images = images[np.random.randint(0, images.shape[0], n)]
+        real_labels = tf.zeros((n, 1))
+        fake_images = self.generate_images(n)
+        fake_labels = tf.ones((n, 1))
+
+        real_loss, real_accuracy = self.discriminator.evaluate(real_images, real_labels, verbose=0)
+        fake_loss, fake_accuracy = self.discriminator.evaluate(fake_images, fake_labels, verbose=0)
+
+        self.accuracies["real"].append(real_accuracy)
+        self.accuracies["fake"].append(fake_accuracy)
 
     def save_plot(self, path, epoch, n):
         if self.test_noise is None:
@@ -84,37 +98,51 @@ class GAN:
             ax[i // n, i % n].imshow(image, aspect="auto")
 
         plt.subplots_adjust(wspace=.05, hspace=.05)
-        plt.savefig(path + '/epoch%d.png' % epoch, bbox_inches='tight', pad_inches=0.1)
+        plt.savefig(f'{path}/{epoch}.png', bbox_inches='tight', pad_inches=0.1)
         plt.close()
 
-    def save_losses(self, path, epoch, g_losses, d_losses_real, d_losses_fake):
+    def save_losses(self, path, epoch):
         fig, ax = plt.subplots()
 
         epochs = [i for i in range(epoch + 1)]
-        ax.plot(epochs, g_losses, label='g loss')
-        ax.plot(epochs, d_losses_real, label='d loss (real)')
-        ax.plot(epochs, d_losses_fake, label='d loss (fake)')
+        ax.plot(epochs, self.losses["g"], label='g loss')
+        ax.plot(epochs, self.losses["d_real"], label='d loss (real)')
+        ax.plot(epochs, self.losses["d_fake"], label='d loss (fake)')
         ax.legend()
-        plt.savefig(path + '/losses.jpg')
+        plt.savefig(f'{path}/losses.jpg')
         plt.close()
 
-    def train(self, images, epochs, batch_size, models_path, images_path, num_img=8, save_period=5, init_epoch=0):
-        g_losses = []
-        d_losses_real = []
-        d_losses_fake = []
+    def save_accuracies(self, path, epoch):
+        fig, ax = plt.subplots()
+
+        epochs = [i for i in range(epoch + 1)]
+        ax.plot(epochs, self.accuracies["real"], label='real accuracy')
+        ax.plot(epochs, self.accuracies["fake"], label='fake accuracy')
+        ax.legend()
+        plt.savefig(f'{path}/accuracies.jpg')
+        plt.close()
+
+    def print_metrics(self, epoch):
+        print(f'epoch {epoch}', end=' ')
+        print(f'g_loss: {self.losses["g"][-1]},', end=' ')
+        print(f'd_loss_real: {self.losses["d_real"][-1]},', end=' ')
+        print(f'd_loss_fake: {self.losses["d_fake"][-1]},', end=' ')
+        print(f'real accuracy: {self.accuracies["real"][-1]},', end=' ')
+        print(f'fake accuracy: {self.accuracies["fake"][-1]}')
+
+    def train(self, images, epochs, batch_size, models_path, images_path, num_img=8, test_acc_num=128, save_period=5, init_epoch=0):
+        self.losses = {"g": [], "d_real": [], "d_fake": []}
+        self.accuracies = {"real": [], "fake": []}
 
         for epoch in range(init_epoch, epochs):
-            g_loss, d_loss_real, d_loss_fake = self.train_step(images, batch_size, epoch)
-            g_losses.append(g_loss)
-            d_losses_real.append(d_loss_real)
-            d_losses_fake.append(d_loss_fake)
+            self.train_step(images, batch_size, epoch)
+            self.test_accuracy(images, test_acc_num)
 
-            self.save_losses(images_path, epoch, g_losses, d_losses_real, d_losses_fake)
+            self.save_losses(images_path, epoch)
+            self.save_accuracies(images_path, epoch)
+            self.print_metrics(epoch)
 
             if epoch < 10 or epoch % save_period == 0:
                 self.save_plot(images_path, epoch, num_img)
-                self.generator.save(models_path + f'/generator_epoch{epoch}.h5')
-                self.discriminator.save(models_path + f'/discriminator_epoch{epoch}.h5')
-
-            print(f'epoch {epoch}, g_loss: {g_losses[-1]}, d_loss_real: {d_losses_real[-1]}, d_loss_fake: {d_losses_fake[-1]}')
-
+                self.generator.save(f'{models_path}/generator_epoch{epoch}.h5')
+                self.discriminator.save(f'{models_path}/discriminator_epoch{epoch}.h5')
