@@ -50,11 +50,11 @@ class GAN:
 
     def train_generator(self, batch_size):
         random_latent_vectors = self.generate_latent(batch_size)
-        misleading_labels = tf.zeros((batch_size, 1))
+        misleading_labels = tf.random.uniform((batch_size, 1), 0.0, 0.1)
 
         return self.gan.train_on_batch(random_latent_vectors, misleading_labels)
 
-    def train_step(self, images, batch_size, epoch):
+    def train_step(self, images, batch_size):
         g_loss_avg = 0
         d_loss_real_avg = 0
         d_loss_fake_avg = 0
@@ -68,20 +68,16 @@ class GAN:
             d_loss_real_avg += d_loss_real
             d_loss_fake_avg += d_loss_fake
 
-            print(f'epoch {epoch} batch {i}, g_loss: {g_loss}, d_loss_real: {d_loss_real}, d_loss_fake: {d_loss_fake}', end='\r')
-
         self.losses["g"].append(g_loss_avg / batches_count)
         self.losses["d_real"].append(d_loss_real_avg / batches_count)
         self.losses["d_fake"].append(d_loss_fake_avg / batches_count)
 
     def test_accuracy(self, images, n):
         real_images = images[np.random.randint(0, images.shape[0], n)]
-        real_labels = tf.zeros((n, 1))
         fake_images = self.generate_images(n)
-        fake_labels = tf.ones((n, 1))
 
-        real_loss, real_accuracy = self.discriminator.evaluate(real_images, real_labels, verbose=0)
-        fake_loss, fake_accuracy = self.discriminator.evaluate(fake_images, fake_labels, verbose=0)
+        real_loss, real_accuracy = self.discriminator.evaluate(real_images, tf.zeros((n, 1)), verbose=0)
+        fake_loss, fake_accuracy = self.discriminator.evaluate(fake_images, tf.ones((n, 1)), verbose=0)
 
         self.accuracies["real"].append(real_accuracy)
         self.accuracies["fake"].append(fake_accuracy)
@@ -130,12 +126,12 @@ class GAN:
         print(f'real accuracy: {self.accuracies["real"][-1]},', end=' ')
         print(f'fake accuracy: {self.accuracies["fake"][-1]}')
 
-    def train(self, images, epochs, batch_size, models_path, images_path, num_img=8, test_acc_num=128, save_period=5, init_epoch=0):
+    def train(self, images, epochs, batch_size, models_path, images_path, num_img=8, test_acc_num=128, save_period=5):
         self.losses = {"g": [], "d_real": [], "d_fake": []}
         self.accuracies = {"real": [], "fake": []}
 
-        for epoch in range(init_epoch, epochs):
-            self.train_step(images, batch_size, epoch)
+        for epoch in range(epochs):
+            self.train_step(images, batch_size)
             self.test_accuracy(images, test_acc_num)
 
             self.save_losses(images_path, epoch)

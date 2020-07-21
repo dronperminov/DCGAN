@@ -28,6 +28,9 @@ def main():
     batch_size = 32
     epochs = 500
 
+    plot_images = 8
+    acc_images = 1024
+
     init = keras.initializers.RandomNormal(mean=0.0, stddev=0.02)
 
     generator = keras.Sequential([
@@ -78,7 +81,7 @@ def main():
 
     gan = GAN(latent_dim, discriminator, generator, d_optimizer, g_optimizer, loss_fn)
     gan.summary()
-    gan.train(images, epochs, batch_size, models_path, images_path)
+    gan.train(images, epochs, batch_size, models_path, images_path, num_img=plot_images, test_acc_num=acc_images)
 
 
 if __name__ == '__main__':
