@@ -1,6 +1,10 @@
+import os
 import tensorflow as tf
+from tensorflow.keras.preprocessing import image
 import numpy as np
 from matplotlib import pyplot as plt
+
+from fid import FrechetInceptionDistance
 
 
 def make_interpolation(generator, latent_dim, count, filename='interpolation.png'):
@@ -36,15 +40,32 @@ def make_examples(generator, latent_dim, count, filename='examples.png'):
     plt.close()
 
 
+def evaluate_fid(generator, latent_dim, count, dataset_path):
+    files = [f for f in os.listdir(dataset_path)][:count]
+    images1 = [np.array(image.load_img(dataset_path + f)) for f in files]
+    images1 = np.array(images1).astype('float32')
+
+    noise = tf.random.normal(shape=(count, latent_dim))
+    images2 = (generator(noise).numpy() + 1) * 127.5
+
+    fid = FrechetInceptionDistance()
+    print('fid:', fid.evaluate(images1, images2))
+
+
 def main():
     latent_dim = 128
-    count = 10
-    filename = "models/generator_epoch205.h5"
+    interpolation_count = 10
+    fid_count = 1024
+    examples_count = 16
 
-    generator = tf.keras.models.load_model(filename)
+    generator_path = "models/generator_epoch205.h5"
+    images_path = "C:/Users/dronp/Desktop/ImageRecognition/cats/"
 
-    make_interpolation(generator, latent_dim, count)
-    make_examples(generator, latent_dim, 16)
+    generator = tf.keras.models.load_model(generator_path)
+
+    make_interpolation(generator, latent_dim, interpolation_count)
+    make_examples(generator, latent_dim, examples_count)
+    evaluate_fid(generator, latent_dim, fid_count, images_path)
 
 
 if __name__ == '__main__':
