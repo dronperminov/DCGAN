@@ -20,9 +20,7 @@ def main():
     images_path = "generated/"
     models_path = "models/"
 
-    width = 64
-    height = 64
-    depth = 3
+    image_shape = (64, 64, 3)
 
     latent_dim = 128
     batch_size = 32
@@ -35,7 +33,6 @@ def main():
 
     generator = keras.Sequential([
         layers.Dense(4 * 4 * 1024, input_shape=(latent_dim,)),
-        layers.LeakyReLU(alpha=0.2),
         layers.Reshape((4, 4, 1024)),
 
         layers.Conv2DTranspose(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
@@ -51,25 +48,29 @@ def main():
     ], name="generator")
 
     discriminator = keras.Sequential([
-        layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init, input_shape=image_shape),
         layers.LeakyReLU(alpha=0.2),
+        layers.Dropout(0.2),
 
         layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.LeakyReLU(alpha=0.2),
+        layers.Dropout(0.3),
 
         layers.Conv2D(256, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.LeakyReLU(alpha=0.2),
+        layers.Dropout(0.4),
 
         layers.Conv2D(512, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.LeakyReLU(alpha=0.2),
+        layers.Dropout(0.5),
 
         layers.Flatten(),
-        layers.Dense(1, activation='sigmoid'),
+        layers.Dense(1),
     ], name="discriminator")
 
-    g_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
-    d_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
-    loss_fn = 'binary_crossentropy'
+    g_optimizer = keras.optimizers.Adam(learning_rate=0.0001, beta_1=0.5)
+    d_optimizer = keras.optimizers.Adam(learning_rate=0.00007, beta_1=0.5)
+    loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
     images = load_data(dataset_path)
 

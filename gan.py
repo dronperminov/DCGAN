@@ -34,7 +34,7 @@ class GAN:
 
     def generate_images(self, size):
         random_latent_vectors = self.generate_latent(size)
-        return self.generator(random_latent_vectors)
+        return self.generator(random_latent_vectors, training=False)
 
     def train_discriminator(self, train_images, batch_size):
         real_images = train_images[np.random.randint(0, train_images.shape[0], batch_size // 2)]
@@ -50,7 +50,7 @@ class GAN:
 
     def train_generator(self, batch_size):
         random_latent_vectors = self.generate_latent(batch_size)
-        misleading_labels = tf.random.uniform((batch_size, 1), 0.0, 0.1)
+        misleading_labels = tf.zeros((batch_size, 1))
 
         return self.gan.train_on_batch(random_latent_vectors, misleading_labels)
 
@@ -86,7 +86,7 @@ class GAN:
         if self.test_noise is None:
             self.test_noise = self.generate_latent(n*n)
 
-        images = (self.generator(self.test_noise) + 1) * 0.5
+        images = (self.generator(self.test_noise, training=False) + 1) * 0.5
         fig, ax = plt.subplots(n, n, figsize=(20, 20))
 
         for i, image in enumerate(images):
