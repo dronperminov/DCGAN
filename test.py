@@ -52,6 +52,25 @@ def evaluate_fid(generator, latent_dim, count, dataset_path):
     print('fid:', fid.evaluate(images1, images2))
 
 
+def evaluate_generators(latent_dim, count, dataset_path, generators_path, epoches, start_epoch=0):
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+
+    if gpus:
+        try:
+            tf.config.experimental.set_memory_growth(gpus[0], True)
+            tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
+        except RuntimeError as e:
+            print(e)
+
+    fid = FrechetInceptionDistance()
+    files = [f for f in os.listdir(dataset_path)][:count]
+    images = [np.array(image.load_img(dataset_path + f)) for f in files]
+    images = np.array(images).astype('float32')
+
+    paths = [f'{generators_path}/generator_epoch{epoch}.h5' for epoch in range(start_epoch, epoches, 5)]
+    fid.evaluate_models(images, paths, latent_dim)
+
+
 def main():
     latent_dim = 128
     interpolation_count = 10
@@ -60,10 +79,12 @@ def main():
 
     generator_path = "models/generator_epoch205.h5"
     images_path = "C:/Users/dronp/Desktop/ImageRecognition/cats/"
+    generators_path = "C:/Users/dronp/Desktop/ImageRecognition/generators/"
+
+    evaluate_generators(latent_dim, fid_count, images_path, generators_path, 200)
 
     generator = tf.keras.models.load_model(generator_path)
-
-    make_interpolation(generator, latent_dim, interpolation_count)
+    make_interpolation(generator, latent_dim, interpolation_count, f'interpolation{i}.png')
     make_examples(generator, latent_dim, examples_count)
     evaluate_fid(generator, latent_dim, fid_count, images_path)
 
