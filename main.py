@@ -33,6 +33,7 @@ def main():
 
     generator = keras.Sequential([
         layers.Dense(4 * 4 * 1024, input_shape=(latent_dim,)),
+        layers.LeakyReLU(alpha=0.2),
         layers.Reshape((4, 4, 1024)),
 
         layers.Conv2DTranspose(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
