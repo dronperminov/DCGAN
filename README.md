@@ -1,5 +1,5 @@
 # DCGAN
-Implementation of DCGAN for generation 64x64 RGB images with Tensorflow and Keras
+Implementation of DCGAN for generation 64x64 RGB images with Tensorflow and Keras. Frechet Inception distance (FID) metric is used to test the quality of generated images.
 
 ## Examples
 
@@ -8,7 +8,7 @@ Implementation of DCGAN for generation 64x64 RGB images with Tensorflow and Kera
   <tr>
     <td width='33%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/anime_faces_examples.png' /></td>
     <td width='33%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/anime_faces_interpolation.png' /></td>
-    <td width='33%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/anime_faces_losses.jpg' /></td>
+    <td width='33%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/anime_faces.gif' /></td>
   </tr>
 </table>
 
@@ -17,7 +17,24 @@ Implementation of DCGAN for generation 64x64 RGB images with Tensorflow and Kera
   <tr>
     <td width='33%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/cats_examples.png' /></td>
     <td width='33%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/cats_interpolation.png' /></td>
-    <td width='33%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/cats_losses.jpg' /></td>
+    <td width='33%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/cats.gif' /></td>
+  </tr>
+</table>
+
+## Training process
+### Anime-faces
+<table>
+  <tr>
+    <td width='50%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/anime_faces_losses.jpg' /></td>
+    <td width='50%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/anime_faces_accuracies.jpg' /></td>
+  </tr>
+</table>
+
+### Cats-faces
+<table>
+  <tr>
+    <td width='50%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/cats_losses.jpg' /></td>
+    <td width='50%'><img src='https://github.com/dronperminov/DCGAN/blob/master/examples/cats_accuracies.jpg' /></td>
   </tr>
 </table>
 
@@ -47,20 +64,24 @@ Total params: 13130627
 ### Discriminator
 ```python
 discriminator = keras.Sequential([
-    layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
+    layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init, input_shape=image_shape),
     layers.LeakyReLU(alpha=0.2),
+    layers.Dropout(0.2),
 
     layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
     layers.LeakyReLU(alpha=0.2),
+    layers.Dropout(0.3),
 
     layers.Conv2D(256, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
     layers.LeakyReLU(alpha=0.2),
+    layers.Dropout(0.4),
 
     layers.Conv2D(512, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
     layers.LeakyReLU(alpha=0.2),
+    layers.Dropout(0.5),
 
     layers.Flatten(),
-    layers.Dense(1, activation='sigmoid'),
+    layers.Dense(1),
 ], name="discriminator")
 ```
 Total params: 4314753
