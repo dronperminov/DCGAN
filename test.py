@@ -84,7 +84,7 @@ def main():
     evaluate_generators(latent_dim, fid_count, images_path, generators_path, 200)
 
     generator = tf.keras.models.load_model(generator_path)
-    make_interpolation(generator, latent_dim, interpolation_count, f'interpolation{i}.png')
+    make_interpolation(generator, latent_dim, interpolation_count)
     make_examples(generator, latent_dim, examples_count)
     evaluate_fid(generator, latent_dim, fid_count, images_path)
 
