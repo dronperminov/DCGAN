@@ -27,7 +27,6 @@ def main():
     epochs = 500
 
     plot_images = 8
-    acc_images = 1024
 
     init = keras.initializers.RandomNormal(mean=0.0, stddev=0.02)
 
@@ -37,12 +36,15 @@ def main():
         layers.Reshape((4, 4, 1024)),
 
         layers.Conv2DTranspose(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.BatchNormalization(),
         layers.LeakyReLU(alpha=0.2),
 
         layers.Conv2DTranspose(256, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.BatchNormalization(),
         layers.LeakyReLU(alpha=0.2),
 
         layers.Conv2DTranspose(128, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.BatchNormalization(),
         layers.LeakyReLU(alpha=0.2),
 
         layers.Conv2DTranspose(3, (4, 4), strides=(2, 2), padding='same', activation='tanh'),
@@ -50,28 +52,27 @@ def main():
 
     discriminator = keras.Sequential([
         layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init, input_shape=image_shape),
+        layers.BatchNormalization(),
         layers.LeakyReLU(alpha=0.2),
-        layers.Dropout(0.2),
 
         layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.BatchNormalization(),
         layers.LeakyReLU(alpha=0.2),
-        layers.Dropout(0.3),
 
         layers.Conv2D(256, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.BatchNormalization(),
         layers.LeakyReLU(alpha=0.2),
-        layers.Dropout(0.4),
 
         layers.Conv2D(512, (5, 5), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.BatchNormalization(),
         layers.LeakyReLU(alpha=0.2),
-        layers.Dropout(0.5),
 
         layers.Flatten(),
-        layers.Dense(1),
+        layers.Dense(1, kernel_initializer=init),
     ], name="discriminator")
 
-    g_optimizer = keras.optimizers.Adam(learning_rate=0.0001, beta_1=0.5)
-    d_optimizer = keras.optimizers.Adam(learning_rate=0.00007, beta_1=0.5)
-    loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+    g_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
+    d_optimizer = keras.optimizers.Adam(learning_rate=0.00015, beta_1=0.5)
 
     images = load_data(dataset_path)
 
@@ -81,9 +82,9 @@ def main():
     if images_path and not os.path.exists(images_path):
         os.mkdir(images_path)
 
-    gan = GAN(latent_dim, discriminator, generator, d_optimizer, g_optimizer, loss_fn)
+    gan = GAN(latent_dim, discriminator, generator, d_optimizer, g_optimizer)
     gan.summary()
-    gan.train(images, epochs, batch_size, models_path, images_path, num_img=plot_images, test_acc_num=acc_images)
+    gan.train(images, epochs, batch_size, models_path, images_path, plot_images)
 
 
 if __name__ == '__main__':

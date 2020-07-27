@@ -4,20 +4,21 @@ from tensorflow import keras
 from matplotlib import pyplot as plt
 
 
-class GAN:
-    def __init__(self, latent_dim, discriminator, generator, d_optimizer, g_optimizer, loss_fn='binary_crossentropy'):
+class GAN(tf.keras.models.Model):
+    def __init__(self, latent_dim, discriminator, generator, d_optimizer, g_optimizer):
+        super(tf.keras.models.Model, self).__init__()
         self.discriminator = discriminator
         self.generator = generator
         self.latent_dim = latent_dim
         self.test_noise = None
 
-        self.discriminator.compile(optimizer=d_optimizer, loss=loss_fn, metrics=['accuracy'])
-        self.discriminator.trainable = False
+        self.g_optimizer = g_optimizer
+        self.d_optimizer = d_optimizer
+        self.bce = tf.keras.losses.BinaryCrossentropy(from_logits=True, label_smoothing=0.4)
 
         self.gan = keras.models.Sequential()
         self.gan.add(generator)
         self.gan.add(discriminator)
-        self.gan.compile(optimizer=g_optimizer, loss=loss_fn)
 
     def summary(self):
         print("Generator:")
@@ -29,62 +30,42 @@ class GAN:
         print("Gan:")
         self.gan.summary()
 
-    def generate_latent(self, size):
-        return tf.random.normal(shape=(size, self.latent_dim))
+    @tf.function
+    def generator_loss(self, real_output, fake_output):
+        real_part = tf.reduce_mean((real_output - tf.reduce_mean(fake_output, 0) + tf.ones_like(real_output)) ** 2, 0)
+        fake_part = tf.reduce_mean((fake_output - tf.reduce_mean(real_output, 0) - tf.ones_like(real_output)) ** 2, 0)
 
-    def generate_images(self, size):
-        random_latent_vectors = self.generate_latent(size)
-        return self.generator(random_latent_vectors, training=False)
+        return (real_part + fake_part) / 2.
 
-    def train_discriminator(self, train_images, batch_size):
-        real_images = train_images[np.random.randint(0, train_images.shape[0], batch_size // 2)]
-        real_labels = tf.random.uniform((batch_size // 2, 1), 0.0, 0.1)
+    @tf.function
+    def discriminator_loss(self, real_output, fake_output):
+        real_part = self.bce(tf.ones_like(real_output), real_output)
+        fake_part = self.bce(tf.zeros_like(fake_output), fake_output)
 
-        fake_images = self.generate_images(batch_size // 2)
-        fake_labels = tf.random.uniform((batch_size // 2, 1), 0.9, 1.0)
+        return real_part + fake_part
 
-        d_loss_real, _ = self.discriminator.train_on_batch(real_images, real_labels)
-        d_loss_fake, _ = self.discriminator.train_on_batch(fake_images, fake_labels)
+    @tf.function
+    def train_step(self, real_images, batch_size):
+        noise = tf.random.normal(shape=(batch_size, self.latent_dim))
 
-        return d_loss_real, d_loss_fake
+        with tf.GradientTape() as g_tape, tf.GradientTape() as d_tape:
+            fake_images = self.generator(noise, training=True)
+            real_output = self.discriminator(real_images, training=True)
+            fake_output = self.discriminator(fake_images, training=True)
 
-    def train_generator(self, batch_size):
-        random_latent_vectors = self.generate_latent(batch_size)
-        misleading_labels = tf.zeros((batch_size, 1))
+            g_loss = self.generator_loss(real_output, fake_output)
+            d_loss = self.discriminator_loss(real_output, fake_output)
 
-        return self.gan.train_on_batch(random_latent_vectors, misleading_labels)
+        g_gradients = g_tape.gradient(g_loss, self.generator.trainable_variables)
+        d_gradients = d_tape.gradient(d_loss, self.discriminator.trainable_variables)
+        self.g_optimizer.apply_gradients(zip(g_gradients, self.generator.trainable_variables))
+        self.d_optimizer.apply_gradients(zip(d_gradients, self.discriminator.trainable_variables))
 
-    def train_step(self, images, batch_size):
-        g_loss_avg = 0
-        d_loss_real_avg = 0
-        d_loss_fake_avg = 0
-        batches_count = images.shape[0] // batch_size
-
-        for i in range(batches_count):
-            d_loss_real, d_loss_fake = self.train_discriminator(images, batch_size)
-            g_loss = self.train_generator(batch_size)
-
-            g_loss_avg += g_loss
-            d_loss_real_avg += d_loss_real
-            d_loss_fake_avg += d_loss_fake
-
-        self.losses["g"].append(g_loss_avg / batches_count)
-        self.losses["d_real"].append(d_loss_real_avg / batches_count)
-        self.losses["d_fake"].append(d_loss_fake_avg / batches_count)
-
-    def test_accuracy(self, images, n):
-        real_images = images[np.random.randint(0, images.shape[0], n)]
-        fake_images = self.generate_images(n)
-
-        real_loss, real_accuracy = self.discriminator.evaluate(real_images, tf.zeros((n, 1)), verbose=0)
-        fake_loss, fake_accuracy = self.discriminator.evaluate(fake_images, tf.ones((n, 1)), verbose=0)
-
-        self.accuracies["real"].append(real_accuracy)
-        self.accuracies["fake"].append(fake_accuracy)
+        return g_loss[0], d_loss
 
     def save_plot(self, path, epoch, n):
         if self.test_noise is None:
-            self.test_noise = self.generate_latent(n*n)
+            self.test_noise = tf.random.normal(shape=(n*n, self.latent_dim))
 
         images = (self.generator(self.test_noise, training=False) + 1) * 0.5
         fig, ax = plt.subplots(n, n, figsize=(20, 20))
@@ -101,42 +82,37 @@ class GAN:
         fig, ax = plt.subplots()
 
         epochs = [i for i in range(epoch + 1)]
-        ax.plot(epochs, self.losses["g"], label='g loss')
-        ax.plot(epochs, self.losses["d_real"], label='d loss (real)')
-        ax.plot(epochs, self.losses["d_fake"], label='d loss (fake)')
+        ax.plot(epochs, self.losses_info["g"], label='g loss')
+        ax.plot(epochs, self.losses_info["d"], label='d loss')
         ax.legend()
         plt.savefig(f'{path}/losses.jpg')
         plt.close()
 
-    def save_accuracies(self, path, epoch):
-        fig, ax = plt.subplots()
-
-        epochs = [i for i in range(epoch + 1)]
-        ax.plot(epochs, self.accuracies["real"], label='real accuracy')
-        ax.plot(epochs, self.accuracies["fake"], label='fake accuracy')
-        ax.legend()
-        plt.savefig(f'{path}/accuracies.jpg')
-        plt.close()
-
     def print_metrics(self, epoch):
         print(f'epoch {epoch}', end=' ')
-        print(f'g_loss: {self.losses["g"][-1]},', end=' ')
-        print(f'd_loss_real: {self.losses["d_real"][-1]},', end=' ')
-        print(f'd_loss_fake: {self.losses["d_fake"][-1]},', end=' ')
-        print(f'real accuracy: {self.accuracies["real"][-1]},', end=' ')
-        print(f'fake accuracy: {self.accuracies["fake"][-1]}')
+        print(f'g_loss: {self.losses_info["g"][-1]},', end=' ')
+        print(f'd_loss: {self.losses_info["d"][-1]},')
 
-    def train(self, images, epochs, batch_size, models_path, images_path, num_img=8, test_acc_num=128, save_period=5):
-        self.losses = {"g": [], "d_real": [], "d_fake": []}
-        self.accuracies = {"real": [], "fake": []}
+    def train(self, images, epochs, batch_size, models_path, images_path, num_img=8, save_period=5):
+        self.losses_info = {"g": [], "d": []}
+        n_batches = images.shape[0] // batch_size
 
         for epoch in range(epochs):
-            self.train_step(images, batch_size)
-            self.test_accuracy(images, test_acc_num)
+            d_loss_avg = 0
+            g_loss_avg = 0
 
-            self.save_losses(images_path, epoch)
-            self.save_accuracies(images_path, epoch)
+            for batch in range(n_batches):
+                train_images = images[np.random.randint(0, images.shape[0], batch_size)]
+                g_loss, d_loss = self.train_step(train_images, batch_size)
+                g_loss_avg += g_loss
+                d_loss_avg += d_loss
+                print(f'epoch {epoch}, batch {batch}, g_loss: {g_loss}, d_loss: {d_loss}', end='\r')
+
+            self.losses_info["g"].append(g_loss_avg / n_batches)
+            self.losses_info["d"].append(d_loss_avg / n_batches)
+
             self.print_metrics(epoch)
+            self.save_losses(images_path, epoch)
 
             if epoch < 10 or epoch % save_period == 0:
                 self.save_plot(images_path, epoch, num_img)
