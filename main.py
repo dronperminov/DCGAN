@@ -5,6 +5,7 @@ from tensorflow.keras.preprocessing import image
 import numpy as np
 import os
 
+import losses
 from gan import GAN
 
 
@@ -22,8 +23,8 @@ def main():
 
     image_shape = (64, 64, 3)
 
-    latent_dim = 128
-    batch_size = 32
+    latent_dim = 256
+    batch_size = 16
     epochs = 500
 
     plot_images = 8
@@ -82,7 +83,8 @@ def main():
     if images_path and not os.path.exists(images_path):
         os.mkdir(images_path)
 
-    gan = GAN(latent_dim, discriminator, generator, d_optimizer, g_optimizer)
+    loss_fn = losses.RaLSGANLoss()
+    gan = GAN(latent_dim, discriminator, generator, d_optimizer, g_optimizer, loss_fn)
     gan.summary()
     gan.train(images, epochs, batch_size, models_path, images_path, plot_images)
 

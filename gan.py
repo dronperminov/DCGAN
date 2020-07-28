@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 
 class GAN(tf.keras.models.Model):
-    def __init__(self, latent_dim, discriminator, generator, d_optimizer, g_optimizer):
+    def __init__(self, latent_dim, discriminator, generator, d_optimizer, g_optimizer, loss_fn):
         super(tf.keras.models.Model, self).__init__()
         self.discriminator = discriminator
         self.generator = generator
@@ -14,7 +14,7 @@ class GAN(tf.keras.models.Model):
 
         self.g_optimizer = g_optimizer
         self.d_optimizer = d_optimizer
-        self.bce = tf.keras.losses.BinaryCrossentropy(from_logits=True, label_smoothing=0.4)
+        self.loss_fn = loss_fn
 
         self.gan = keras.models.Sequential()
         self.gan.add(generator)
@@ -31,20 +31,6 @@ class GAN(tf.keras.models.Model):
         self.gan.summary()
 
     @tf.function
-    def generator_loss(self, real_output, fake_output):
-        real_part = tf.reduce_mean((real_output - tf.reduce_mean(fake_output, 0) + tf.ones_like(real_output)) ** 2, 0)
-        fake_part = tf.reduce_mean((fake_output - tf.reduce_mean(real_output, 0) - tf.ones_like(real_output)) ** 2, 0)
-
-        return (real_part + fake_part) / 2.
-
-    @tf.function
-    def discriminator_loss(self, real_output, fake_output):
-        real_part = self.bce(tf.ones_like(real_output), real_output)
-        fake_part = self.bce(tf.zeros_like(fake_output), fake_output)
-
-        return real_part + fake_part
-
-    @tf.function
     def train_step(self, real_images, batch_size):
         noise = tf.random.normal(shape=(batch_size, self.latent_dim))
 
@@ -53,17 +39,18 @@ class GAN(tf.keras.models.Model):
             real_output = self.discriminator(real_images, training=True)
             fake_output = self.discriminator(fake_images, training=True)
 
-            g_loss = self.generator_loss(real_output, fake_output)
-            d_loss = self.discriminator_loss(real_output, fake_output)
+            g_loss = self.loss_fn.generator_loss(real_output, fake_output)
+            d_loss = self.loss_fn.discriminator_loss(real_output, fake_output)
 
         g_gradients = g_tape.gradient(g_loss, self.generator.trainable_variables)
         d_gradients = d_tape.gradient(d_loss, self.discriminator.trainable_variables)
+
         self.g_optimizer.apply_gradients(zip(g_gradients, self.generator.trainable_variables))
         self.d_optimizer.apply_gradients(zip(d_gradients, self.discriminator.trainable_variables))
 
-        return g_loss[0], d_loss
+        return g_loss, d_loss
 
-    def save_plot(self, path, epoch, n):
+    def save_examples(self, path, epoch, n):
         if self.test_noise is None:
             self.test_noise = tf.random.normal(shape=(n*n, self.latent_dim))
 
@@ -106,7 +93,6 @@ class GAN(tf.keras.models.Model):
                 g_loss, d_loss = self.train_step(train_images, batch_size)
                 g_loss_avg += g_loss
                 d_loss_avg += d_loss
-                print(f'epoch {epoch}, batch {batch}, g_loss: {g_loss}, d_loss: {d_loss}', end='\r')
 
             self.losses_info["g"].append(g_loss_avg / n_batches)
             self.losses_info["d"].append(d_loss_avg / n_batches)
@@ -115,6 +101,6 @@ class GAN(tf.keras.models.Model):
             self.save_losses(images_path, epoch)
 
             if epoch < 10 or epoch % save_period == 0:
-                self.save_plot(images_path, epoch, num_img)
+                self.save_examples(images_path, epoch, num_img)
                 self.generator.save(f'{models_path}/generator_epoch{epoch}.h5')
                 self.discriminator.save(f'{models_path}/discriminator_epoch{epoch}.h5')
