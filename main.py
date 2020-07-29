@@ -25,14 +25,16 @@ def main():
 
     latent_dim = 256
     batch_size = 16
-    epochs = 500
+    iterations = 300000
 
-    plot_images = 8
+    save_period = 1500
+    save_loss_period = 500
+    examples_count = 8
 
     init = keras.initializers.RandomNormal(mean=0.0, stddev=0.02)
 
     generator = keras.Sequential([
-        layers.Dense(4 * 4 * 1024, input_shape=(latent_dim,)),
+        layers.Dense(4 * 4 * 1024, kernel_initializer=init, input_shape=(latent_dim,)),
         layers.LeakyReLU(alpha=0.2),
         layers.Reshape((4, 4, 1024)),
 
@@ -86,7 +88,7 @@ def main():
     loss_fn = losses.RaLSGANLoss()
     gan = GAN(latent_dim, discriminator, generator, d_optimizer, g_optimizer, loss_fn)
     gan.summary()
-    gan.train(images, epochs, batch_size, models_path, images_path, plot_images)
+    gan.train(images, iterations, batch_size, models_path, images_path, examples_count, save_period, save_loss_period)
 
 
 if __name__ == '__main__':

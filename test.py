@@ -52,7 +52,7 @@ def evaluate_fid(generator, latent_dim, count, dataset_path):
     print('fid:', fid.evaluate(images1, images2))
 
 
-def evaluate_generators(latent_dim, count, dataset_path, generators_path, epochs, start_epoch=0):
+def evaluate_generators(latent_dim, count, dataset_path, generators_path, iterations, start=1500, step=1500):
     gpus = tf.config.experimental.list_physical_devices('GPU')
 
     if gpus:
@@ -67,22 +67,22 @@ def evaluate_generators(latent_dim, count, dataset_path, generators_path, epochs
     images = [np.array(image.load_img(dataset_path + f)) for f in files]
     images = np.array(images).astype('float32')
 
-    paths = [f'{generators_path}/generator_epoch{epoch}.h5' for epoch in range(start_epoch, epochs, 5)]
+    paths = [f'{generators_path}/generator_iteration{iteration}.h5' for iteration in range(start, iterations + 1, step)]
     fid.evaluate_models(images, paths, latent_dim)
 
 
 def main():
-    latent_dim = 128
+    latent_dim = 256
     interpolation_count = 10
     fid_count = 1024
     examples_count = 16
-    epochs = 200
+    iterations = 21000
 
     generator_path = "models/cats_generator.h5"
     dataset_path = "C:/Users/dronp/Desktop/ImageRecognition/cats/"
-    generators_path = "models/"
+    generators_path = "C:/Users/dronp/Desktop/ImageRecognition/generators/"
 
-    evaluate_generators(latent_dim, fid_count, dataset_path, generators_path, epochs)
+    evaluate_generators(latent_dim, fid_count, dataset_path, generators_path, iterations)
 
     generator = tf.keras.models.load_model(generator_path)
     make_interpolation(generator, latent_dim, interpolation_count)

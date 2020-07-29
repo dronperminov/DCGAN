@@ -50,7 +50,7 @@ class GAN(tf.keras.models.Model):
 
         return g_loss, d_loss
 
-    def save_examples(self, path, epoch, n):
+    def save_examples(self, path, iteration, n):
         if self.test_noise is None:
             self.test_noise = tf.random.normal(shape=(n*n, self.latent_dim))
 
@@ -62,45 +62,47 @@ class GAN(tf.keras.models.Model):
             ax[i // n, i % n].imshow(image, aspect="auto")
 
         plt.subplots_adjust(wspace=.05, hspace=.05)
-        plt.savefig(f'{path}/{epoch}.png', bbox_inches='tight', pad_inches=0.1)
+        plt.savefig(f'{path}/{iteration}.png', bbox_inches='tight', pad_inches=0.1)
         plt.close()
 
-    def save_losses(self, path, epoch):
+    def save_losses(self, path, iteration, step):
         fig, ax = plt.subplots()
 
-        epochs = [i for i in range(epoch + 1)]
-        ax.plot(epochs, self.losses_info["g"], label='g loss')
-        ax.plot(epochs, self.losses_info["d"], label='d loss')
+        iterations = [(i + 1) * step for i in range(iteration // step)]
+        ax.plot(iterations, self.losses_info["g"], label='g loss')
+        ax.plot(iterations, self.losses_info["d"], label='d loss')
         ax.legend()
         plt.savefig(f'{path}/losses.jpg')
         plt.close()
 
-    def print_metrics(self, epoch):
-        print(f'epoch {epoch}', end=' ')
+    def print_metrics(self, iteration):
+        print(f'iteration {iteration}', end=' ')
         print(f'g_loss: {self.losses_info["g"][-1]},', end=' ')
         print(f'd_loss: {self.losses_info["d"][-1]},')
 
-    def train(self, images, epochs, batch_size, models_path, images_path, num_img=8, save_period=5):
+    def train(self, images, iterations, batch_size, models_path, images_path, num_img=8, save_period=2000, save_loss_period=100):
         self.losses_info = {"g": [], "d": []}
-        n_batches = images.shape[0] // batch_size
 
-        for epoch in range(epochs):
-            d_loss_avg = 0
-            g_loss_avg = 0
+        g_loss_avg = 0
+        d_loss_avg = 0
 
-            for batch in range(n_batches):
-                train_images = images[np.random.randint(0, images.shape[0], batch_size)]
-                g_loss, d_loss = self.train_step(train_images, batch_size)
-                g_loss_avg += g_loss
-                d_loss_avg += d_loss
+        for iteration in range(1, iterations + 1):
+            train_images = images[np.random.randint(0, images.shape[0], batch_size)]
+            g_loss, d_loss = self.train_step(train_images, batch_size)
 
-            self.losses_info["g"].append(g_loss_avg / n_batches)
-            self.losses_info["d"].append(d_loss_avg / n_batches)
+            g_loss_avg += g_loss
+            d_loss_avg += d_loss
 
-            self.print_metrics(epoch)
-            self.save_losses(images_path, epoch)
+            if iteration % save_loss_period == 0:
+                self.losses_info["g"].append(g_loss_avg / save_loss_period)
+                self.losses_info["d"].append(d_loss_avg / save_loss_period)
+                self.print_metrics(iteration)
+                self.save_losses(images_path, iteration, save_loss_period)
 
-            if epoch < 10 or epoch % save_period == 0:
-                self.save_examples(images_path, epoch, num_img)
-                self.generator.save(f'{models_path}/generator_epoch{epoch}.h5')
-                self.discriminator.save(f'{models_path}/discriminator_epoch{epoch}.h5')
+                d_loss_avg = 0
+                g_loss_avg = 0
+
+            if iteration % save_period == 0:
+                self.save_examples(images_path, iteration, num_img)
+                self.generator.save(f'{models_path}/generator_iteration{iteration}.h5')
+                self.discriminator.save(f'{models_path}/discriminator_iteration{iteration}.h5')
