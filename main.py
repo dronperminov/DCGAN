@@ -34,21 +34,22 @@ def main():
     init = keras.initializers.RandomNormal(mean=0.0, stddev=0.02)
 
     generator = keras.Sequential([
-        layers.Dense(4 * 4 * 1024, kernel_initializer=init, input_shape=(latent_dim,)),
-        layers.LeakyReLU(alpha=0.2),
-        layers.Reshape((4, 4, 1024)),
-
-        layers.Conv2DTranspose(512, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.Reshape((1, 1, latent_dim), input_shape=(latent_dim,)),
+        layers.Conv2DTranspose(512, (4, 4), strides=(1, 1), padding='valid', kernel_initializer=init),
         layers.BatchNormalization(),
-        layers.LeakyReLU(alpha=0.2),
+        layers.ReLU(),
 
         layers.Conv2DTranspose(256, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.BatchNormalization(),
-        layers.LeakyReLU(alpha=0.2),
+        layers.ReLU(),
 
         layers.Conv2DTranspose(128, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
         layers.BatchNormalization(),
-        layers.LeakyReLU(alpha=0.2),
+        layers.ReLU(),
+
+        layers.Conv2DTranspose(64, (4, 4), strides=(2, 2), padding='same', kernel_initializer=init),
+        layers.BatchNormalization(),
+        layers.ReLU(),
 
         layers.Conv2DTranspose(3, (4, 4), strides=(2, 2), padding='same', activation='tanh'),
     ], name="generator")
@@ -70,8 +71,8 @@ def main():
         layers.BatchNormalization(),
         layers.LeakyReLU(alpha=0.2),
 
-        layers.Flatten(),
-        layers.Dense(1, kernel_initializer=init),
+        layers.Conv2D(1, (4, 4), strides=(2, 2), padding='valid', kernel_initializer=init),
+        layers.Flatten()
     ], name="discriminator")
 
     g_optimizer = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
